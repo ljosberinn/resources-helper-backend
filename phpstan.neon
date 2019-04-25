@@ -1,0 +1,7 @@
+parameters:
+    excludes_analyse:
+        - %currentWorkingDirectory%/public/vendor/*
+    autoload_directories:
+        - %currentWorkingDirectory%/public/dependencies/classes
+    autoload_files:
+        - %currentWorkingDirectory%/public/_boot.php
