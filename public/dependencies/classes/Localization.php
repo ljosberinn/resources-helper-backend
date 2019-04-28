@@ -23,7 +23,11 @@ class Localization {
     private function verifyLocale(): bool {
         $stmt = $this->pdo->query(self::QUERIES['verifyLocale']);
 
-        foreach($stmt->fetchAll() as $columm) {
+        if(!$stmt) {
+            return false;
+        }
+
+        foreach((array) $stmt->fetchAll() as $columm) {
             if($columm['Field'] === $this->locale) {
                 return true;
             }
@@ -34,20 +38,20 @@ class Localization {
 
     public function get(): string {
         if(!$this->verifyLocale()) {
-            return json_encode($this->error);
+            return (string) json_encode($this->error);
         }
 
         $stmt = $this->pdo->query('SELECT `key`, `' . $this->locale . '` FROM `localization`');
 
         $localization = [];
 
-        if($stmt->rowCount() > 0) {
+        if($stmt && $stmt->rowCount() > 0) {
 
-            foreach($stmt->fetchAll() as $dataset) {
+            foreach((array) $stmt->fetchAll() as $dataset) {
                 $localization[$dataset['key']] = $dataset[$this->locale];
             }
         }
 
-        return json_encode($localization);
+        return (string) json_encode($localization);
     }
 }
