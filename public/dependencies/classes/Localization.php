@@ -54,4 +54,50 @@ class Localization {
 
         return (string) json_encode($localization);
     }
+
+    private function getLocales(): array {
+        $stmt = $this->pdo->query(self::QUERIES['verifyLocale']);
+
+        $locales = [];
+
+        $ignoredKeys = ['uid', 'key'];
+
+        foreach((array) $stmt->fetchAll() as $dataset) {
+            if(in_array($dataset['Field'], $ignoredKeys, true)) {
+                continue;
+            }
+
+            $locales[] = $dataset['Field'];
+        }
+
+        return $locales;
+    }
+
+    /**
+     * Adds new localization to database based on i18next-xhr-backend addData
+     *
+     * @param array $post
+     *
+     * @return bool
+     */
+    public function add(array $post): bool {
+        $locales = $this->getLocales();
+        $query   = 'INSERT INTO `localization` (`key`, `' . implode('`, `', $locales) . '`) VALUES (:key, ';
+
+        $newKey = array_values($post)[0];
+
+        $params = ['key' => $newKey];
+
+        foreach($locales as $index => $locale) {
+            $params['newKey_' . $index] = $newKey;
+
+            $query .= ':newKey_' . $index . ', ';
+        }
+
+        $query = substr($query, 0, -2) . ')';
+
+        $stmt = $this->pdo->prepare($query);
+
+        return $stmt->execute($params);
+    }
 }
