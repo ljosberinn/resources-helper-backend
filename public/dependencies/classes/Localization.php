@@ -60,10 +60,14 @@ class Localization {
 
         $locales = [];
 
-        $ignoredKeys = ['uid', 'key'];
+        if(!$stmt) {
+            return $locales;
+        }
+
+        $ignoredColumns = ['uid', 'key'];
 
         foreach((array) $stmt->fetchAll() as $dataset) {
-            if(in_array($dataset['Field'], $ignoredKeys, true)) {
+            if(in_array($dataset['Field'], $ignoredColumns, true)) {
                 continue;
             }
 
