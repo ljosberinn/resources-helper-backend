@@ -1,6 +1,8 @@
 Header set Access-Control-Allow-Origin "*"
-Header set Access-Control-Allow-Methods "POST"
+Header set Access-Control-Allow-Methods "POST, GET"
 
 RewriteEngine On
+RewriteRule ^([^.?]+).json(.*)$ $1.php$2 [L]
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule ^([^\.]+)$ $1.php [NC,L]
