@@ -38,9 +38,7 @@ class CombatLogHandler implements APIInterface {
     public function transform(array $data): array {
         $userIndex = new PlayerIndex($this->pdo);
 
-        $result = [];
-
-        foreach($data as &$dataset) {
+        return array_map(function($dataset) use ($userIndex) {
             $userUID = $this->getPlayerID($userIndex, $dataset['targetUserName'], (int) $dataset['unixts']);
 
             /* 4 possible cases
@@ -53,7 +51,7 @@ class CombatLogHandler implements APIInterface {
             $action  = $dataset['act'] === 'D' ? 0 : 1;
             $outcome = $dataset['result'] === 'lost' ? 0 : 1;
 
-            $result[] = [
+            return [
                 'action'     => $action,
                 'result'     => $outcome,
                 'timestamp'  => $dataset['unixts'],
@@ -77,9 +75,7 @@ class CombatLogHandler implements APIInterface {
                 'lootQuantity2' => $dataset['loot2ItemQty'],
                 'lootFactor'    => $dataset['lootfactor'],
             ];
-        }
-
-        return $result;
+        }, $data);
     }
 
     public function save(array $data): bool {

@@ -53,7 +53,6 @@ class FactoryHandler implements APIInterface {
         $factories = [];
 
         foreach($data as $dataset) {
-
             $factoryID = (int) $dataset['factoryID'];
 
             if($this->isValidFactory($factoryID)) {

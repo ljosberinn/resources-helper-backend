@@ -38,10 +38,8 @@ class SpecialBuildings {
             }
         }
 
-        foreach($initialSpecialBuildings as $index => $specialBuilding) {
-            $specialBuildings[] = $specialBuilding;
-        }
-
-        return $specialBuildings;
+        return array_map(function($specialBuilding) {
+            return $specialBuilding;
+        }, $initialSpecialBuildings);
     }
 }

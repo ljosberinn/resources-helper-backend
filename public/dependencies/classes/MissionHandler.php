@@ -35,10 +35,8 @@ class MissionHandler implements APIInterface {
     }
 
     public function transform(array $data): array {
-        $result = [];
-
-        foreach($data as $dataset) {
-            $result[] = [
+        return array_map(function($dataset) {
+            return [
                 $dataset['questID'], // missionID
                 $dataset['status'], // status
                 $dataset['progress'], // progress
@@ -49,9 +47,7 @@ class MissionHandler implements APIInterface {
                 $dataset['starttime'], // startTimestamp
                 $dataset['endtime'], // endTimestamp
             ];
-        }
-
-        return $result;
+        }, $data);
     }
 
     private function deleteOldData(): bool {
@@ -68,9 +64,9 @@ class MissionHandler implements APIInterface {
 
         $query = 'INSERT INTO `missions` (`playerIndexUID`, `timestamp`, `missionID`, `status`, `progress`, `goal`, `rewardAmount`, `penalty`, `cooldown`, `startTimestamp`, `endTimestamp`) VALUES ';
 
-        foreach($data as $dataset) {
-            $query .= '(' . $this->playerIndexUID . ', ' . $now . ', ' . implode(', ', $dataset) . '), ';
-        }
+        $query .= array_reduce($data, function($carry, $dataset) use ($now) {
+            return $carry . '(' . $this->playerIndexUID . ', ' . $now . ', ' . implode(', ', $dataset) . '), ';
+        });
 
         $query = substr($query, 0, -2);
 

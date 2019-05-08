@@ -60,11 +60,8 @@ class MineHandler implements APIInterface {
     }
 
     public function transform(array $data): array {
-
-        $result = [];
-
-        foreach($data as $dataset) {
-            $result[] = [
+        return array_map(function($dataset) {
+            return [
                 $dataset['resourceID'], // resourceID
                 $dataset['minecount'], // amount
 
@@ -82,9 +79,7 @@ class MineHandler implements APIInterface {
                 $dataset['OAqualityInclTU'], // avgTechedQuality
                 $dataset['OAattackpenalty'], // avgPenalty
             ];
-        }
-
-        return $result;
+        }, $data);
     }
 
     private function archiveOldData(): bool {
@@ -112,9 +107,9 @@ class MineHandler implements APIInterface {
 
         $query = 'INSERT INTO `mines` (`playerIndexUID`, `timestamp`, `resourceID`, `amount`, `sumTechRate`, `sumRawRate`, `sumDef1`, `sumDef2`, `sumDef3`, `sumAttacks`, `sumAttacksLost`, `avgTechFactor`, `avgHQBoost`, `avgQuality`, `avgTechedQuality`, `avgPenalty`) VALUES ';
 
-        foreach($data as $dataset) {
-            $query .= '(' . $this->playerIndexUID . ', ' . $now . ', ' . implode(', ', $dataset) . '), ';
-        }
+        $query .= array_reduce($data, function($carry, $dataset) use ($now) {
+            return $carry . '(' . $this->playerIndexUID . ', ' . $now . ', ' . implode(', ', $dataset) . '), ';
+        });
 
         $query = substr($query, 0, -2);
 

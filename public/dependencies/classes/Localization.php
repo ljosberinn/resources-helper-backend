@@ -46,7 +46,6 @@ class Localization {
         $localization = [];
 
         if($stmt && $stmt->rowCount() > 0) {
-
             foreach((array) $stmt->fetchAll() as $dataset) {
                 $localization[$dataset['key']] = $dataset[$this->locale];
             }
@@ -58,11 +57,11 @@ class Localization {
     private function getLocales(): array {
         $stmt = $this->pdo->query(self::QUERIES['verifyLocale']);
 
-        $locales = [];
-
         if(!$stmt) {
-            return $locales;
+            return [];
         }
+
+        $locales = [];
 
         $ignoredColumns = ['uid', 'key'];
 

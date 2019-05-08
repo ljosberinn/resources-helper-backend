@@ -40,7 +40,7 @@ class Factories {
 
         foreach($factories as $key => $factory) {
             if($factory[$column] === $id) {
-                $index = (int) $key;
+                return (int) $key;
                 break;
             }
         }
@@ -48,8 +48,6 @@ class Factories {
         if($index === -1) {
             throw new RuntimeException('unknown factoryID ' . $id);
         }
-
-        return $index;
     }
 
     private function mergeFactoriesWithDependencies(array $factories): array {
@@ -110,13 +108,11 @@ class Factories {
     private function getStaticFactoryData(): array {
         $stmt = $this->pdo->query(self::QUERIES['getStaticFactoryData']);
 
-        $factories = [];
-
         if(!$stmt || $stmt->rowCount() <= 0) {
-            return $factories;
+            return [];
         }
 
-        foreach((array) $stmt->fetchAll() as $factory) {
+        return array_map(function($factory) {
             $dataset = [
                 'id'                     => $factory['uid'],
                 'productID'              => $factory['productID'],
@@ -133,9 +129,7 @@ class Factories {
                 $dataset['relevantMines'] = [];
             }
 
-            $factories[] = $dataset;
-        }
-
-        return $factories;
+            return $dataset;
+        }, (array) $stmt->fetchAll());
     }
 }

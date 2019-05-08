@@ -196,35 +196,24 @@ class MarketPrices extends APICore {
     }
 
     private function buildExportQuery(): string {
-        $sql = 'SELECT ';
-
-        foreach(array_keys(self::ID_MAP) as $key) {
-            $sql .= ' ROUND(AVG(player_' . $key . ')) as player_' . $key . ', ROUND(AVG(ai_' . $key . ')) as ai_' . $key . ', ';
-        }
-
-        $sql = substr($sql, 0, -2);
-        $sql .= ' FROM `marketPrices` WHERE `timestamp` >= :timestamp';
-
-        return $sql;
+        return substr('SELECT ' . array_reduce(array_keys(self::ID_MAP), function($carry, $key) {
+                    return $carry . ' ROUND(AVG(player_' . $key . ')) as player_' . $key . ', ROUND(AVG(ai_' . $key . ')) as ai_' . $key . ', ';
+                }), 0, -2) . ' FROM `marketPrices` WHERE `timestamp` >= :timestamp';
     }
 
     public function getArray(): array {
         $stmt = $this->pdo->prepare($this->buildExportQuery());
         $stmt->execute(['timestamp' => $this->createTimestamp()]);
 
-        $prices = [];
-
         $data = $stmt->fetch();
 
-        foreach(array_keys(self::ID_MAP) as $id) {
-            $prices[] = [
+        return array_map(function($id) use ($data) {
+            return [
                 'id'     => $id,
                 'ai'     => $data['ai_' . $id],
                 'player' => $data['player_' . $id],
             ];
-        }
-
-        return $prices;
+        }, array_keys(self::ID_MAP));
     }
 
     public function export(): string {
@@ -253,17 +242,13 @@ class MarketPrices extends APICore {
     }
 
     private function generateJSON(): string {
-        $prices = [];
-
-        foreach(array_keys(self::ID_MAP) as $id) {
-            $prices[] = [
+        return (string) json_encode(array_map(function($id) {
+            return [
                 'id'     => $id,
                 'ai'     => $this->data['ai_' . $id],
                 'player' => $this->data['player_' . $id],
             ];
-        }
-
-        return (string) json_encode($prices, JSON_NUMERIC_CHECK);
+        }, array_keys(self::ID_MAP)), JSON_NUMERIC_CHECK);
     }
 
     private function generateXML(): string {
@@ -304,13 +289,8 @@ class MarketPrices extends APICore {
     }
 
     private function generateCSV(): string {
-
-        $csv = "id,ai,player\r\n";
-
-        foreach(array_keys(self::ID_MAP) as $id) {
-            $csv .= $id . ',' . $this->data['ai_' . $id] . ',' . $this->data['player_' . $id] . "\r\n";
-        }
-
-        return $csv;
+        return "id,ai,player\r\n" . array_reduce(array_keys(self::ID_MAP), function($carry, $id) {
+                return $carry . $id . ',' . $this->data['ai_' . $id] . ',' . $this->data['player_' . $id] . "\r\n";
+            }, array_keys(self::ID_MAP));
     }
 }

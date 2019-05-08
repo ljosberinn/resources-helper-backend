@@ -36,36 +36,34 @@ class Mines {
     }
 
     public function get(): array {
-        $mines = [];
-
         $stmt = $this->pdo->query(self::QUERIES['getMines']);
+
+        if($stmt && $stmt->rowCount() === 0) {
+            return [];
+        }
 
         $mineFactoryRelations = $this->getMineFactoryRelation();
 
-        if($stmt && $stmt->rowCount() > 0) {
-            foreach((array) $stmt->fetchAll() as $mine) {
-                $mines[] = [
-                    'resourceID'         => $mine['uid'],
-                    'amount'             => 0,
-                    'basePrice'          => $mine['basePrice'],
-                    'maxHourlyRate'      => $mine['maxHourlyRate'] / 10,
-                    'sumTechRate'        => 0,
-                    'sumRawRate'         => 0,
-                    'sumDef1'            => 0,
-                    'sumDef2'            => 0,
-                    'sumDef3'            => 0,
-                    'sumAttacks'         => 0,
-                    'sumAttacksLost'     => 0,
-                    'avgTechFactor'      => 0.00,
-                    'avgHQBoost'         => 0.00,
-                    'avgQuality'         => 0.00,
-                    'avgTechedQuality'   => 0.00,
-                    'avgPenalty'         => 0,
-                    'dependantFactories' => $mineFactoryRelations[$mine['uid']] ?? [],
-                ];
-            }
-        }
-
-        return $mines;
+        return array_map(function($mine) use ($mineFactoryRelations) {
+            [
+                'resourceID'         => $mine['uid'],
+                'amount'             => 0,
+                'basePrice'          => $mine['basePrice'],
+                'maxHourlyRate'      => $mine['maxHourlyRate'] / 10,
+                'sumTechRate'        => 0,
+                'sumRawRate'         => 0,
+                'sumDef1'            => 0,
+                'sumDef2'            => 0,
+                'sumDef3'            => 0,
+                'sumAttacks'         => 0,
+                'sumAttacksLost'     => 0,
+                'avgTechFactor'      => 0.00,
+                'avgHQBoost'         => 0.00,
+                'avgQuality'         => 0.00,
+                'avgTechedQuality'   => 0.00,
+                'avgPenalty'         => 0,
+                'dependantFactories' => $mineFactoryRelations[$mine['uid']] ?? [],
+            ];
+        }, (array) $stmt->fetchAll());
     }
 }
