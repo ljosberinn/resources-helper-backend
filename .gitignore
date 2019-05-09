@@ -1,3 +1,4 @@
-/vendor/
-/logs/*
+vendor/
+logs/*
 .env
+.idea/
