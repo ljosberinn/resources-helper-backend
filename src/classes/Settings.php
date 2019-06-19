@@ -18,11 +18,46 @@ class Settings {
     ];
 
     private const QUERIES = [
-        'rememberAPIKey' => 'UPDATE `user` SET `apiKey` = :apiKey WHERE `uid` = :uid',
+        'rememberAPIKey'     => 'UPDATE `user` SET `apiKey` = :apiKey WHERE `uid` = :uid',
+        'createDefaultEntry' => 'INSERT INTO `settings` (`uid`) VALUES(:uid)',
+        'get'                => 'SELECT * FROM `settings` WHERE `uid` = :uid',
     ];
 
     public function __construct(PDO $pdo) {
         $this->pdo = $pdo;
+
+        if($_SERVER['HTTP_X_FORWARDED_FOR'] === '127.0.0.1') {
+            $this->createTable();
+        }
+    }
+
+    private function createTable(): void {
+        $stmt = 'CREATE TABLE IF NOT EXISTS 
+        `rhelper`.`settings` (
+            `uid` INT(10) NULL AUTO_INCREMENT,
+            `language` VARCHAR(5) NOT NULL DEFAULT "de_DE"
+        )';
+
+        $this->pdo->exec($stmt);
+    }
+
+    public static function createDefaultEntry(PDO $pdo, int $uid): void {
+        $stmt = $pdo->prepare(self::QUERIES['createDefaultEntry']);
+        $stmt->execute([
+            'uid' => $uid,
+        ]);
+    }
+
+    public static function get(PDO $pdo, int $uid) {
+        $stmt = $pdo->prepare(self::QUERIES['get']);
+        $stmt->execute([
+            'uid' => $uid,
+        ]);
+
+        $settings = $stmt->fetch();
+        unset($settings['uid']);
+
+        return $settings;
     }
 
     public function setType(string $type): void {

@@ -18,9 +18,10 @@ class User {
         'uniqueness'       => [
             'mail' => 'SELECT `uid`, `password` FROM `user` WHERE `mail` = :value',
         ],
-        'register'         => 'INSERT INTO `user` (mail, password) VALUES(:mail, :password)',
-        'login'            => 'UPDATE `user` SET `lastLogin` = :lastLogin, `lastAction` = :lastAction WHERE `uid` = :uid',
-        'updateLastAction' => 'UPDATE `user` SET `lastAction` = :lastAction WHERE `uid` = :uid',
+        'register'         => 'INSERT INTO `user` (`mail`, `password`, `registeredAt`, `lastLogin`, `lastAction`) VALUES(:mail, :password, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), UNIX_TIMESTAMP())',
+        'login'            => 'UPDATE `user` SET `lastLogin` = UNIX_TIMESTAMP(), `lastAction` = UNIX_TIMESTAMP() WHERE `uid` = :uid',
+        'updateLastAction' => 'UPDATE `user` SET `lastAction` = UNIX_TIMESTAMP() WHERE `uid` = :uid',
+        'getAccountData'   => 'SELECT `apiKey` FROM `user` WHERE `uid` = :uid',
     ];
 
     public function __construct(PDO $pdo) {
@@ -37,8 +38,9 @@ class User {
             `uid` INT(11) NOT NULL AUTO_INCREMENT,
             `mail` VARCHAR(255) NOT NULL,
             `password` CHAR(100) NOT NULL,
-            `lastLogin` INT(10) NULL DEFAULT NULL,
-            `lastAction` INT(10) NULL DEFAULT NULL,
+            `registeredAt` INT(10) NOT NULL,
+            `lastLogin` INT(10) DEFAULT NULL,
+            `lastAction` INT(10) DEFAULT NULL,
             `apiKey` VARCHAR(45) NULL DEFAULT NULL,
             PRIMARY KEY (`uid`)
         )';
@@ -75,29 +77,21 @@ class User {
     public function register(array $userData): int {
         $stmt = $this->pdo->prepare(self::QUERIES['register']);
 
-        try {
-            $this->pdo->beginTransaction();
-            $stmt->execute([
-                'mail'     => $userData['mail'],
-                'password' => password_hash($userData['password'], PASSWORD_BCRYPT, ['cost' => 12]),
-            ]);
-            $this->pdo->commit();
+        $stmt->execute([
+            'mail'     => $userData['mail'],
+            'password' => password_hash($userData['password'], PASSWORD_BCRYPT, ['cost' => 12]),
+        ]);
 
-            return (int) $this->pdo->lastInsertId();
-        } catch(PDOException $e) {
-            $this->pdo->rollBack();
-            throw new PDOException($e->getMessage());
-        }
+        $uid = (int) $this->pdo->lastInsertId();
+
+        Settings::createDefaultEntry($this->pdo, $uid);
+        return $uid;
     }
 
     public function login(): int {
         $stmt = $this->pdo->prepare(self::QUERIES['login']);
-
-        $now = time();
         $stmt->execute([
-            'lastLogin'  => $now,
-            'lastAction' => $now,
-            'uid'        => $this->currentUser['uid'],
+            'uid' => $this->currentUser['uid'],
         ]);
 
         return (int) $this->currentUser['uid'];
@@ -110,8 +104,23 @@ class User {
     public static function updateLastAction(PDO $pdo, int $uid): void {
         $stmt = $pdo->prepare(self::QUERIES['updateLastAction']);
         $stmt->execute([
-            'lastAction' => time(),
-            'uid'        => $uid,
+            'uid' => $uid,
         ]);
+    }
+
+    public function getAccountData(int $uid): array {
+        $stmt = $this->pdo->prepare(self::QUERIES['getAccountData']);
+        $stmt->execute([
+            'uid' => $uid,
+        ]);
+
+        $accountData = $stmt->fetch();
+
+        $response = [
+            'apiKey'   => $accountData['apiKey'],
+            'settings' => Settings::get($this->pdo, $uid),
+        ];
+
+        return $response;
     }
 }

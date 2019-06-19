@@ -10,7 +10,7 @@ namespace ResourcesHelper;
  */
 trait ValidationTrait {
 
-    private $PASSWORD_PATTERN = '/^(?=.*[A-Za-z])(?=.*\\d)[A-Za-z\\d]{4,}$/';
+    private $PASSWORD_PATTERN = '/^.*(?=.{8,})(?=.*[a-zA-Z])(?=.*\d)(?=.*[!#$%&? "]).*$/';
     private $MAIL_PATTERN = '/^[^\s@]+@[^\s@]+\.[^\s@]+$/';
 
     private $MAIL_EXISTS = 'MAIL_EXISTS';
