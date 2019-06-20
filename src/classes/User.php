@@ -22,6 +22,7 @@ class User {
         'login'            => 'UPDATE `user` SET `lastLogin` = UNIX_TIMESTAMP(), `lastAction` = UNIX_TIMESTAMP() WHERE `uid` = :uid',
         'updateLastAction' => 'UPDATE `user` SET `lastAction` = UNIX_TIMESTAMP() WHERE `uid` = :uid',
         'getAccountData'   => 'SELECT `apiKey` FROM `user` WHERE `uid` = :uid',
+        'exists'           => 'SELECT `uid` FROM `user` WHERE `uid` = :uid',
     ];
 
     public function __construct(PDO $pdo) {
@@ -108,7 +109,15 @@ class User {
         ]);
     }
 
-    public function getAccountData(int $uid): array {
+    /**
+     * Fetches the users profile.
+     *
+     * @param int  $uid
+     * @param bool $withToken [JWT recreation indicator]
+     *
+     * @return array
+     */
+    public function getAccountData(int $uid, bool $withToken): array {
         $stmt = $this->pdo->prepare(self::QUERIES['getAccountData']);
         $stmt->execute([
             'uid' => $uid,
@@ -121,6 +130,30 @@ class User {
             'settings' => Settings::get($this->pdo, $uid),
         ];
 
+        if($withToken) {
+            $response['token'] = Token::create($uid);
+        }
+
         return $response;
+    }
+
+    /**
+     * If public, fetches required data to render someones profile.
+     *
+     * @param int $uid
+     *
+     * @return array
+     */
+    public function getProfileData(int $uid): array {
+        return [];
+    }
+
+    public function exists(int $uid): bool {
+        $stmt = $this->pdo->prepare(self::QUERIES['exists']);
+        $stmt->execute([
+            'uid' => $uid,
+        ]);
+
+        return $stmt->rowCount() === 1;
     }
 }

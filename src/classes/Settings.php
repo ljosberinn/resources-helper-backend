@@ -21,6 +21,7 @@ class Settings {
         'rememberAPIKey'     => 'UPDATE `user` SET `apiKey` = :apiKey WHERE `uid` = :uid',
         'createDefaultEntry' => 'INSERT INTO `settings` (`uid`) VALUES(:uid)',
         'get'                => 'SELECT * FROM `settings` WHERE `uid` = :uid',
+        'hasPublicProfile'   => 'SELECT `uid` FROM `settings` WHERE `hasPublicProfile` = 1 AND `uid` = :uid',
     ];
 
     public function __construct(PDO $pdo) {
@@ -35,7 +36,8 @@ class Settings {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`settings` (
             `uid` INT(10) NULL AUTO_INCREMENT,
-            `language` VARCHAR(5) NOT NULL DEFAULT "de_DE"
+            `language` VARCHAR(5) NOT NULL DEFAULT "de_DE",
+            `hasPublicProfile` TINYINT(1) NOT NULL DEFAULT "0"
         )';
 
         $this->pdo->exec($stmt);
@@ -79,5 +81,14 @@ class Settings {
 
                 break;
         }
+    }
+
+    public function hasPublicProfile(int $uid): bool {
+        $stmt = $this->pdo->prepare(self::QUERIES['hasPublicProfile']);
+        $stmt->execute([
+            'uid' => $uid,
+        ]);
+
+        return $stmt->rowCount() === 1;
     }
 }
