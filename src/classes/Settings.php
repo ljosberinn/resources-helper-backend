@@ -18,7 +18,10 @@ class Settings {
     ];
 
     private const QUERIES = [
-        'rememberAPIKey'     => 'UPDATE `user` SET `apiKey` = :apiKey WHERE `uid` = :uid',
+        'rememberAPIKey'     => [
+            'UPDATE `user` SET `apiKey` = :apiKey WHERE `uid` = :uid',
+            'UPDATE `settings` SET `remembersAPIKey` = :value WHERE `uid` = :uid',
+        ],
         'createDefaultEntry' => 'INSERT INTO `settings` (`uid`) VALUES(:uid)',
         'get'                => 'SELECT * FROM `settings` WHERE `uid` = :uid',
         'hasPublicProfile'   => 'SELECT `uid` FROM `settings` WHERE `hasPublicProfile` = 1 AND `uid` = :uid',
@@ -37,6 +40,7 @@ class Settings {
         `rhelper`.`settings` (
             `uid` INT(10) NULL AUTO_INCREMENT,
             `language` VARCHAR(5) NOT NULL DEFAULT "de_DE",
+            `remembersAPIKey` TINYINT(1) NOT NULL DEFAULT "0",
             `hasPublicProfile` TINYINT(1) NOT NULL DEFAULT "0"
         )';
 
@@ -71,10 +75,16 @@ class Settings {
 
         switch($this->type) {
             case 'rememberAPIKey':
-                $stmt = $this->pdo->prepare(self::QUERIES['rememberAPIKey']);
+                $stmt = $this->pdo->prepare(self::QUERIES['rememberAPIKey'][0]);
                 $stmt->execute([
                     'uid'    => $uid,
                     'apiKey' => $payload['apiKey'] ?? NULL,
+                ]);
+
+                $stmt = $this->pdo->prepare(self::QUERIES['rememberAPIKey'][1]);
+                $stmt->execute([
+                    'value' => $payload['apiKey'] ? 1 : 0,
+                    'uid'   => $uid,
                 ]);
                 break;
             case 'language':

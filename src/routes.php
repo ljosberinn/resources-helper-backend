@@ -8,29 +8,77 @@ use ResourcesHelper\{Status, Registration, Login, Token, Settings, User};
 return static function(App $app) {
     $container = $app->getContainer();
 
-    /**
-     * Frontend Route /profile/ with auth
-     */
-    $app->get('/account', function(Request $request, Response $response) use ($container) {
+    $app->get('/api/{id}', function(Request $request, Response $response, array $args) use ($container) {
         $container->get('logger')
-                  ->info('/profile - uid ' . $container['token']['uid']);
+                  ->info('/api/' . $args['id'] . ' - ' . $container['token']['uid']);
 
-        // flag to indicate re-creation of token; only when previous token is older than 5 minutes
-        $withToken = time() > $container['token']['exp'] - 300;
+        $output = ['id' => $args['id']];
 
-        $user = new User($container->get('db'));
-
-        $output = $user->getAccountData((int) $container['token']['uid'], $withToken);
-
-        return $response->withStatus(Status::OK)
+        return $response->withStatus($status ?? Status::OK)
                         ->withHeader(...JSON())
-                        ->write(json_encode($output, JSON_NUMERIC_CHECK));
+                        ->write(json_encode($output));
+    });
+
+    $app->group('/account', function(App $app) {
+        /**
+         * Frontend Route /profile/ with auth
+         */
+        $app->get('/', function(Request $request, Response $response) {
+            $this->get('logger')
+                 ->info('/profile - uid ' . $this['token']['uid']);
+
+            // flag to indicate re-creation of token; only when previous token is older than 5 minutes
+            $withToken = time() > $this['token']['exp'] - 300;
+
+            $user   = new User($this->get('db'));
+            $output = $user->getAccountData((int) $this['token']['uid'], $withToken);
+
+            return $response->withStatus(Status::OK)
+                            ->withHeader(...JSON())
+                            ->write(json_encode($output, JSON_NUMERIC_CHECK));
+        });
+
+        $app->post('/updateQueryHistory', function(Request $request, Response $response) {
+            $this->get('logger')
+                 ->info('updateQueryHistory - uid ' . $this['token']['uid']);
+
+            $output = ['token' => Token::create($this['token']['uid'])];
+
+            $body = $request->getParsedBody() ?: [];
+
+            return $response->withStatus(Status::OK)
+                            ->withHeader(...JSON())
+                            ->write(json_encode($output));
+        });
+
+        $app->patch('/settings/{type}', function(Request $request, Response $response, array $args) {
+            $this->get('logger')
+                 ->info('Settings - ' . $args['type'] . ' - uid ' . $this['token']['uid']);
+            $output = [];
+
+            $settings = new Settings($this->get('db'));
+
+            if(!in_array($args['type'], $settings::TYPES, true)) {
+                return $response->withStatus(Status::NOT_FOUND)
+                                ->withHeader(...JSON())
+                                ->write(json_encode(['error' => 'unknown settings type ' . $args['type']]));
+            }
+
+            $settings->setType($args['type']);
+            $settings->update((int) $this['token']['uid'], $request->getParsedBody() ?: []);
+
+            $output['token'] = Token::create((int) $this['token']['uid']);
+
+            return $response->withStatus(Status::ACCEPTED)
+                            ->withHeader(...JSON())
+                            ->write(json_encode($output));
+        });
     });
 
     /**
      * Frontend Route /profile/ without auth
      */
-    $app->get('/profile/[{id}]', function(Request $request, Response $response, array $args) use ($container) {
+    $app->get('/profile/{id}', function(Request $request, Response $response, array $args) use ($container) {
         $container->get('logger')
                   ->info('/profile/' . $args['id']);
 
@@ -58,71 +106,50 @@ return static function(App $app) {
                         ->write(json_encode($user->getProfileData($uid), JSON_NUMERIC_CHECK));
     });
 
-    $app->patch('/account/settings/[{type}]', function(Request $request, Response $response, array $args) use ($container) {
-        $container->get('logger')
-                  ->info('Settings - ' . $args['type'] . ' - uid ' . $container['token']['uid']);
-        $output = [];
+    $app->group('/auth', function(App $app) use ($container) {
+        $app->post('/login', function(Request $request, Response $response) {
+            $this->get('logger')
+                 ->info('Login');
+            $output = [];
 
-        $settings = new Settings($container->get('db'));
+            $login = new Login($this->get('db'));
 
-        if(!in_array($args['type'], $settings::TYPES, true)) {
-            return $response->withStatus(Status::FORBIDDEN)
+            if($error = $login->getError($request->getParsedBody() ?: [])) {
+                $output['error'] = $error;
+                $status          = $login->getErrorStatus($error);
+            }
+
+            if(!isset($output['error'])) {
+                $output['token'] = Token::create($login->login());
+            }
+
+            return $response->withStatus($status ?? Status::OK)
                             ->withHeader(...JSON())
-                            ->write(json_encode(['error' => 'unknown settings type ' . $args['type']]));
-        }
+                            ->write(json_encode($output));
+        });
 
-        $settings->setType($args['type']);
-        $settings->update((int) $container['token']['uid'], $request->getParsedBody() ?: []);
+        $app->post('/register', function(Request $request, Response $response) {
+            $this->get('logger')
+                 ->info('Registration');
+            $output = [];
 
-        $output['token'] = Token::create((int) $container['token']['uid']);
+            $userData = $request->getParsedBody() ?: [];
 
-        return $response->withStatus(Status::ACCEPTED)
-                        ->withHeader(...JSON())
-                        ->write(json_encode($output));
-    });
+            $registration = new Registration($this->get('db'));
 
-    $app->post('/login', function(Request $request, Response $response) use ($container) {
-        $container->get('logger')
-                  ->info('Login');
-        $output = [];
+            if($error = $registration->getError($userData)) {
+                $output['error'] = $error;
+                $status          = $registration->getErrorStatus($error);
+            }
 
-        $login = new Login($container->get('db'));
+            if(!isset($output['error'])) {
+                $output['token'] = Token::create($registration->register($userData));
+            }
 
-        if($error = $login->getError($request->getParsedBody() ?: [])) {
-            $output['error'] = $error;
-            $status          = $login->getErrorStatus($error);
-        }
-
-        if(!isset($output['error'])) {
-            $output['token'] = Token::create($login->login());
-        }
-
-        return $response->withStatus($status ?? Status::OK)
-                        ->withHeader(...JSON())
-                        ->write(json_encode($output));
-    });
-
-    $app->post('/register', function(Request $request, Response $response) use ($container) {
-        $container->get('logger')
-                  ->info('Registration');
-        $output = [];
-
-        $userData = $request->getParsedBody() ?: [];
-
-        $registration = new Registration($container->get('db'));
-
-        if($error = $registration->getError($userData)) {
-            $output['error'] = $error;
-            $status          = $registration->getErrorStatus($error);
-        }
-
-        if(!isset($output['error'])) {
-            $output['token'] = Token::create($registration->register($userData));
-        }
-
-        return $response->withStatus($status ?? Status::CREATED)
-                        ->withHeader(...JSON())
-                        ->write(json_encode($output));
+            return $response->withStatus($status ?? Status::CREATED)
+                            ->withHeader(...JSON())
+                            ->write(json_encode($output));
+        });
     });
 
     $app->get('/', function(Request $request, Response $response, array $args) use ($container) {

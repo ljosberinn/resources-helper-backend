@@ -9,7 +9,7 @@ return static function(App $app) {
 
     $app->add(new Tuupola\Middleware\JwtAuthentication([
         'path'      => '/',
-        'ignore'    => ['/login', '/register', '/profile'],
+        'ignore'    => ['/auth', '/profile'],
         'secret'    => $_ENV['jwtSecret'],
         'algorithm' => 'HS256',
         'secure'    => true,
