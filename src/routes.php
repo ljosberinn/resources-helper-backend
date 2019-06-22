@@ -3,14 +3,14 @@
 use Slim\App;
 use Slim\Http\Request;
 use Slim\Http\Response;
-use ResourcesHelper\{Status, Registration, Login, Token, Settings, User};
+use ResourcesHelper\{APIQueryHistory, Status, Registration, Login, Token, Settings, User};
 
 return static function(App $app) {
     $container = $app->getContainer();
 
     $app->get('/api/{id}', function(Request $request, Response $response, array $args) use ($container) {
         $container->get('logger')
-                  ->info('/api/' . $args['id'] . ' - ' . $container['token']['uid']);
+                  ->info('GET /api/' . $args['id'] . ' - uid ' . $container['token']['uid']);
 
         $output = ['id' => $args['id']];
 
@@ -25,7 +25,7 @@ return static function(App $app) {
          */
         $app->get('/', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('/profile - uid ' . $this['token']['uid']);
+                 ->info('GET /profile/' . $this['token']['uid']);
 
             // flag to indicate re-creation of token; only when previous token is older than 5 minutes
             $withToken = time() > $this['token']['exp'] - 300;
@@ -38,22 +38,35 @@ return static function(App $app) {
                             ->write(json_encode($output, JSON_NUMERIC_CHECK));
         });
 
-        $app->post('/updateQueryHistory', function(Request $request, Response $response) {
+        $app->post('/apiQueryHistory', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('updateQueryHistory - uid ' . $this['token']['uid']);
+                 ->info('POST /apiQueryHistory/' . $this['token']['uid']);
 
             $output = ['token' => Token::create($this['token']['uid'])];
 
-            $body = $request->getParsedBody() ?: [];
+            $body    = $request->getParsedBody() ?: [];
+            $history = !empty($body) && isset($body['queries']) ? array_values($body['queries']) : [];
 
-            return $response->withStatus(Status::OK)
+            $apiQueryHistory = new APIQueryHistory($this->get('db'));
+            $status          = $apiQueryHistory->update((int) $this['token']['uid'], $history) ? Status::OK : Status::BAD_REQUEST;
+
+            return $response->withStatus($status)
                             ->withHeader(...JSON())
                             ->write(json_encode($output));
         });
 
+        $app->get('/apiQueryHistory', function(Request $request, Response $response) {
+            $this->get('logger')
+                 ->info('GET /apiQueryHistory/ ' . $this['token']['uid']);
+
+            return $response->withStatus(Status::OK)
+                            ->withHeader(...JSON())
+                            ->write(json_encode(APIQueryHistory::get($this->get('db'), (int) $this['token']['uid'])));
+        });
+
         $app->patch('/settings/{type}', function(Request $request, Response $response, array $args) {
             $this->get('logger')
-                 ->info('Settings - ' . $args['type'] . ' - uid ' . $this['token']['uid']);
+                 ->info('PATCH /settings/' . $args['type'] . '/' . $this['token']['uid']);
             $output = [];
 
             $settings = new Settings($this->get('db'));
@@ -80,7 +93,7 @@ return static function(App $app) {
      */
     $app->get('/profile/{id}', function(Request $request, Response $response, array $args) use ($container) {
         $container->get('logger')
-                  ->info('/profile/' . $args['id']);
+                  ->info('GET /profile/' . $args['id']);
 
         $pdo = $container->get('db');
 
@@ -109,7 +122,7 @@ return static function(App $app) {
     $app->group('/auth', function(App $app) use ($container) {
         $app->post('/login', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('Login');
+                 ->info('POST /auth/login');
             $output = [];
 
             $login = new Login($this->get('db'));
@@ -130,7 +143,7 @@ return static function(App $app) {
 
         $app->post('/register', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('Registration');
+                 ->info('POST /auth/register');
             $output = [];
 
             $userData = $request->getParsedBody() ?: [];

@@ -86,6 +86,7 @@ class User {
         $uid = (int) $this->pdo->lastInsertId();
 
         Settings::createDefaultEntry($this->pdo, $uid);
+        APIQueryHistory::createDefaultEntry($this->pdo, $uid);
         return $uid;
     }
 
@@ -126,8 +127,9 @@ class User {
         $accountData = $stmt->fetch();
 
         $response = [
-            'apiKey'   => $accountData['apiKey'],
-            'settings' => Settings::get($this->pdo, $uid),
+            'apiKey'          => $accountData['apiKey'],
+            'apiQueryHistory' => APIQueryHistory::get($this->pdo, $uid),
+            'settings'        => Settings::get($this->pdo, $uid),
         ];
 
         if($withToken) {
