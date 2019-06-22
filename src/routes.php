@@ -3,18 +3,45 @@
 use Slim\App;
 use Slim\Http\Request;
 use Slim\Http\Response;
-use ResourcesHelper\{APIQueryHistory, Status, Registration, Login, Token, Settings, User};
+use ResourcesHelper\{APIQueryHistory, APIRequest, Status, Registration, Login, Token, Settings, User};
 
 return static function(App $app) {
     $container = $app->getContainer();
 
-    $app->get('/api/{id}', function(Request $request, Response $response, array $args) use ($container) {
+    $app->get('/api/{apiKey}/{query:[0-9]+}', function(Request $request, Response $response, array $args) use ($container) {
         $container->get('logger')
-                  ->info('GET /api/' . $args['id'] . ' - uid ' . $container['token']['uid']);
+                  ->info('GET /api/' . $args['query'] . ' - uid ' . $container['token']['uid']);
 
-        $output = ['id' => $args['id']];
+        $query  = (int) $args['query'];
+        $apiKey = $args['apiKey'];
 
-        return $response->withStatus($status ?? Status::OK)
+        $apiRequest = new APIRequest();
+
+        if(!$apiRequest->isValidAPIKey($apiKey) || !$apiRequest->isValidQuery($query)) {
+            return $response->withStatus(Status::UNPROCESSABLE_ENTITY)
+                            ->withHeader(...JSON())
+                            ->write(json_encode(['error' => 'QUERY_INVALID']));
+        }
+
+        $db = $container->get('db');
+
+        $data = $apiRequest->fetch($query, $apiKey);
+
+        if($data === NULL) {
+            return $response->withStatus(Status::SERVICE_UNAVAILABLE)
+                            ->withHeader(...JSON())
+                            ->write(json_encode(['error' => 'API_UNRESPONSIVE']));
+        }
+
+        //$apiProcessor = new APIProcessor($db, $data);
+        //$apiPersistor = new APIPersistor($db);
+
+        $output = [
+            'query' => $query,
+            'data'  => $data,
+        ];
+
+        return $response->withStatus(Status::OK)
                         ->withHeader(...JSON())
                         ->write(json_encode($output));
     });
