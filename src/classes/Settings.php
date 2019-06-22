@@ -2,12 +2,12 @@
 
 namespace ResourcesHelper;
 
-use PDO;
+use Envms\FluentPDO\{Query, Exception};
 
 class Settings {
 
-    /** @var PDO */
-    private $pdo;
+    /** @var Query */
+    private $fluent;
 
     /** @var string */
     private $type;
@@ -17,18 +17,8 @@ class Settings {
         'language',
     ];
 
-    private const QUERIES = [
-        'rememberAPIKey'     => [
-            'UPDATE `user` SET `apiKey` = :apiKey WHERE `uid` = :uid',
-            'UPDATE `settings` SET `remembersAPIKey` = :value WHERE `uid` = :uid',
-        ],
-        'createDefaultEntry' => 'INSERT INTO `settings` (`uid`) VALUES(:uid)',
-        'get'                => 'SELECT * FROM `settings` WHERE `uid` = :uid',
-        'hasPublicProfile'   => 'SELECT `uid` FROM `settings` WHERE `hasPublicProfile` = 1 AND `uid` = :uid',
-    ];
-
-    public function __construct(PDO $pdo) {
-        $this->pdo = $pdo;
+    public function __construct(Query $fluent) {
+        $this->fluent = $fluent;
 
         if($_SERVER['HTTP_X_FORWARDED_FOR'] === '127.0.0.1') {
             $this->createTable();
@@ -38,31 +28,39 @@ class Settings {
     private function createTable(): void {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`settings` (
-            `uid` INT(10) NULL AUTO_INCREMENT,
+            `id` INT(10) NULL AUTO_INCREMENT,
             `language` VARCHAR(5) NOT NULL DEFAULT "de_DE",
             `remembersAPIKey` TINYINT(1) NOT NULL DEFAULT "0",
             `hasPublicProfile` TINYINT(1) NOT NULL DEFAULT "0"
         )';
-
-        $this->pdo->exec($stmt);
     }
 
-    public static function createDefaultEntry(PDO $pdo, int $uid): void {
-        $stmt = $pdo->prepare(self::QUERIES['createDefaultEntry']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
+    /**
+     * @param Query $fluent
+     * @param int   $id
+     *
+     * @throws Exception
+     */
+    public static function createDefaultEntry(Query $fluent, int $id): void {
+        $values = [
+            'id' => $id,
+        ];
+
+        $fluent->insertInto('settings', $values)
+               ->execute();
     }
 
-    public static function get(PDO $pdo, int $uid) {
-        $stmt = $pdo->prepare(self::QUERIES['get']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
-
-        $settings = $stmt->fetch();
-        unset($settings['uid']);
-
+    /**
+     * @param Query $fluent
+     * @param int   $id
+     *
+     * @return mixed
+     * @throws Exception
+     */
+    public static function get(Query $fluent, int $id) {
+        $settings = $fluent->from('settings', $id)
+                           ->fetch();
+        unset($settings['id']);
         return $settings;
     }
 
@@ -70,22 +68,19 @@ class Settings {
         $this->type = $type;
     }
 
-    public function update(int $uid, array $payload): void {
-        User::updateLastAction($this->pdo, $uid);
+    /**
+     * @param int   $id
+     * @param array $payload
+     *
+     * @throws Exception
+     */
+    public function update(int $id, array $payload): void {
+        User::updateLastAction($this->fluent, $id);
 
         switch($this->type) {
             case 'rememberAPIKey':
-                $stmt = $this->pdo->prepare(self::QUERIES['rememberAPIKey'][0]);
-                $stmt->execute([
-                    'uid'    => $uid,
-                    'apiKey' => $payload['apiKey'] ?? NULL,
-                ]);
-
-                $stmt = $this->pdo->prepare(self::QUERIES['rememberAPIKey'][1]);
-                $stmt->execute([
-                    'value' => $payload['apiKey'] ? 1 : 0,
-                    'uid'   => $uid,
-                ]);
+                $this->fluent->update('user', ['apiKey' => $payload['apiKey'] ?? NULL], $id);
+                $this->fluent->update('settings', ['remembersAPIKey' => $payload['apiKey'] ? 1 : 0], $id);
                 break;
             case 'language':
 
@@ -93,12 +88,17 @@ class Settings {
         }
     }
 
-    public function hasPublicProfile(int $uid): bool {
-        $stmt = $this->pdo->prepare(self::QUERIES['hasPublicProfile']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
+    /**
+     * @param int $id
+     *
+     * @return bool
+     * @throws Exception
+     */
+    public function hasPublicProfile(int $id): bool {
+        return count($this->fluent->from('settings')
+                                  ->where('hasPublicProfile', 1)
+                                  ->where('id', $id)
+                                  ->fetch()) === 1;
 
-        return $stmt->rowCount() === 1;
     }
 }

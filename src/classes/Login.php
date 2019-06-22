@@ -2,7 +2,7 @@
 
 namespace ResourcesHelper;
 
-use PDO;
+use Envms\FluentPDO\{Exception, Query};
 
 class Login {
     use ValidationTrait;
@@ -10,7 +10,7 @@ class Login {
     /** @var User */
     private $user;
 
-    public function __construct(PDO $pdo) {
+    public function __construct(Query $pdo) {
         $this->user = new User($pdo);
     }
 
@@ -44,6 +44,10 @@ class Login {
         return false;
     }
 
+    /**
+     * @return int
+     * @throws Exception
+     */
     public function login(): int {
         return $this->user->login();
     }

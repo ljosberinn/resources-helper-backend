@@ -2,42 +2,45 @@
 
 namespace ResourcesHelper;
 
-use PDO;
+use Envms\FluentPDO\{Exception, Query};
 
 class APIQueryHistory {
 
-    /** @var PDO */
-    private $pdo;
+    /** @var Query */
+    private $fluent;
 
-    private const QUERIES = [
-        'createDefaultEntry' => 'INSERT INTO `apiQueryHistory` (`uid`) VALUES(:uid)',
-        'get'                => 'SELECT * FROM `apiQueryHistory` WHERE `uid` = :uid',
-    ];
-
-    public function __construct(PDO $pdo) {
-        $this->pdo = $pdo;
+    public function __construct(Query $fluent) {
+        $this->fluent = $fluent;
     }
 
-    public static function createDefaultEntry(PDO $pdo, int $uid): void {
-        $stmt = $pdo->prepare(self::QUERIES['createEntry']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
+    /**
+     * @param Query $fluent
+     * @param int   $id
+     *
+     * @throws Exception
+     */
+    public static function createDefaultEntry(Query $fluent, int $id): void {
+        $fluent->insertInto('apiQueryHistory')
+               ->values(['id' => $id])
+               ->execute();
     }
 
-    public static function get(PDO $pdo, int $uid): array {
-        $stmt = $pdo->prepare(self::QUERIES['get']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
+    /**
+     * @param Query $fluent
+     * @param int   $id
+     *
+     * @return array
+     * @throws Exception
+     */
+    public static function get(Query $fluent, int $id): array {
+        $data = $fluent->from('apiQueryHistory', $id)
+                       ->fetch();
+        unset($data['id']);
 
-        $response = [];
-
-        $data = $stmt->fetch();
-        unset($data['uid']);
 
         foreach($data as $id => $timestamp) {
-            $data[$id] = (int) $timestamp;
+            $data[str_replace('query_', '', $id)] = (int) $timestamp;
+            unset($data[$id]);
         }
 
         $mostRecentQuery = array_reduce($data, static function(int $carry, int $entry) {
@@ -48,6 +51,7 @@ class APIQueryHistory {
             return $carry;
         }, 0);
 
+        $response = [];
         foreach($data as $id => $timestamp) {
             $response[] = [
                 'id'        => $id,
@@ -59,22 +63,24 @@ class APIQueryHistory {
         return $response;
     }
 
-    public function update(int $uid, array $currentQueries): bool {
-        $sql = 'UPDATE `apiQueryHistory` SET ';
-
+    /**
+     * @param int   $id
+     * @param array $currentQueries
+     *
+     * @return bool
+     * @throws Exception
+     */
+    public function update(int $id, array $currentQueries): bool {
         $now = time();
 
+        $set = [];
         foreach($currentQueries as $query) {
-            $sql .= '`' . $query . '` = ' . $now . ', ';
+            $set['query_' . $query] = $now;
         }
 
-        $sql = substr($sql, 0, -2);
-        $sql .= ' WHERE `uid` = :uid';
-
-        $stmt = $this->pdo->prepare($sql);
-
-        return $stmt->execute([
-            'uid' => $uid,
-        ]);
+        return (bool) $this->fluent->update('apiQueryHistory')
+                                   ->set($set)
+                                   ->where('id', $id)
+                                   ->execute();
     }
 }

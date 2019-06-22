@@ -3,11 +3,12 @@
 use Slim\App;
 use Slim\Http\Request;
 use Slim\Http\Response;
+use Tuupola\Middleware\JwtAuthentication;
 
 return static function(App $app) {
     $container = $app->getContainer();
 
-    $app->add(new Tuupola\Middleware\JwtAuthentication([
+    $app->add(new JwtAuthentication([
         'path'      => '/',
         'ignore'    => ['/auth', '/profile'],
         'secret'    => $_ENV['jwtSecret'],

@@ -2,31 +2,18 @@
 
 namespace ResourcesHelper;
 
-use PDO;
-use PDOException;
-use RuntimeException;
+use Envms\FluentPDO\{Exception, Query};
 
 class User {
 
-    /** @var PDO */
-    private $pdo;
+    /** @var Query */
+    private $fluent;
 
     /** @var array */
     private $currentUser;
 
-    private const QUERIES = [
-        'uniqueness'       => [
-            'mail' => 'SELECT `uid`, `password` FROM `user` WHERE `mail` = :value',
-        ],
-        'register'         => 'INSERT INTO `user` (`mail`, `password`, `registeredAt`, `lastLogin`, `lastAction`) VALUES(:mail, :password, UNIX_TIMESTAMP(), UNIX_TIMESTAMP(), UNIX_TIMESTAMP())',
-        'login'            => 'UPDATE `user` SET `lastLogin` = UNIX_TIMESTAMP(), `lastAction` = UNIX_TIMESTAMP() WHERE `uid` = :uid',
-        'updateLastAction' => 'UPDATE `user` SET `lastAction` = UNIX_TIMESTAMP() WHERE `uid` = :uid',
-        'getAccountData'   => 'SELECT `apiKey` FROM `user` WHERE `uid` = :uid',
-        'exists'           => 'SELECT `uid` FROM `user` WHERE `uid` = :uid',
-    ];
-
-    public function __construct(PDO $pdo) {
-        $this->pdo = $pdo;
+    public function __construct(Query $pdo) {
+        $this->fluent = $pdo;
 
         if($_SERVER['HTTP_X_FORWARDED_FOR'] === '127.0.0.1') {
             $this->createTable();
@@ -36,17 +23,15 @@ class User {
     private function createTable(): void {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`user` (
-            `uid` INT(11) NOT NULL AUTO_INCREMENT,
+            `id` INT(11) NOT NULL AUTO_INCREMENT,
             `mail` VARCHAR(255) NOT NULL,
             `password` CHAR(100) NOT NULL,
             `registeredAt` INT(10) NOT NULL,
             `lastLogin` INT(10) DEFAULT NULL,
             `lastAction` INT(10) DEFAULT NULL,
             `apiKey` VARCHAR(45) NULL DEFAULT NULL,
-            PRIMARY KEY (`uid`)
+            PRIMARY KEY (`id`)
         )';
-
-        $this->pdo->exec($stmt);
     }
 
     /**
@@ -54,86 +39,107 @@ class User {
      * @param string $value
      *
      * @return bool
-     * @throws RuntimeException
+     * @throws Exception
      */
     public function isUnique(string $column, string $value): bool {
-        if(!isset(self::QUERIES['uniqueness'][$column])) {
-            throw new RuntimeException(sprintf('Unknown column %s used', $column));
-        }
+        $query = $this->fluent->from('user')
+                              ->select(['id', 'password'])
+                              ->where($column, $value)
+                              ->fetch();
 
-        $sql  = self::QUERIES['uniqueness'][$column];
-        $stmt = $this->pdo->prepare($sql);
-        $stmt->execute([
-            'value' => $value,
-        ]);
-
-        if($stmt->rowCount() === 1) {
-            $this->currentUser = $stmt->fetch();
+        if(!empty($query)) {
+            $this->currentUser = $query;
             return true;
         }
 
         return false;
     }
 
+    /**
+     * @param array $userData
+     *
+     * @return int
+     * @throws Exception
+     */
     public function register(array $userData): int {
-        $stmt = $this->pdo->prepare(self::QUERIES['register']);
+        $now = time();
 
-        $stmt->execute([
-            'mail'     => $userData['mail'],
-            'password' => password_hash($userData['password'], PASSWORD_BCRYPT, ['cost' => 12]),
-        ]);
+        $values = [
+            'mail'         => $userData['mail'],
+            'password'     => password_hash($userData['password'], PASSWORD_BCRYPT, ['cost' => 12]),
+            'registeredAt' => $now,
+            'lastLogin'    => $now,
+            'lastAction'   => $now,
+        ];
 
-        $uid = (int) $this->pdo->lastInsertId();
+        $id = (int) $this->fluent->insertInto('user', $values)
+                                 ->execute();
 
-        Settings::createDefaultEntry($this->pdo, $uid);
-        APIQueryHistory::createDefaultEntry($this->pdo, $uid);
-        return $uid;
+        Settings::createDefaultEntry($this->fluent, $id);
+        APIQueryHistory::createDefaultEntry($this->fluent, $id);
+
+        return $id;
     }
 
+    /**
+     * @return int
+     * @throws Exception
+     */
     public function login(): int {
-        $stmt = $this->pdo->prepare(self::QUERIES['login']);
-        $stmt->execute([
-            'uid' => $this->currentUser['uid'],
-        ]);
+        $now = time();
 
-        return (int) $this->currentUser['uid'];
+        $set = [
+            'lastLogin'  => $now,
+            'lastAction' => $now,
+        ];
+
+        $this->fluent->update('user', $set, (int) $this->currentUser['id'])
+                     ->execute();
+
+        return (int) $this->currentUser['id'];
     }
 
     public function isCorrectPassword(string $password): bool {
         return password_verify($password, $this->currentUser['password']);
     }
 
-    public static function updateLastAction(PDO $pdo, int $uid): void {
-        $stmt = $pdo->prepare(self::QUERIES['updateLastAction']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
+    /**
+     * @param Query $fluent
+     * @param int   $id
+     *
+     * @throws Exception
+     */
+    public static function updateLastAction(Query $fluent, int $id): void {
+        $set = [
+            'lastAction' => time(),
+        ];
+
+        $fluent->update('user', $set, $id)
+               ->execute();
     }
 
     /**
      * Fetches the users profile.
      *
-     * @param int  $uid
+     * @param int  $id
      * @param bool $withToken [JWT recreation indicator]
      *
      * @return array
+     * @throws Exception
      */
-    public function getAccountData(int $uid, bool $withToken): array {
-        $stmt = $this->pdo->prepare(self::QUERIES['getAccountData']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
-
-        $accountData = $stmt->fetch();
+    public function getAccountData(int $id, bool $withToken): array {
+        $accountData = $this->fluent->from('user', $id)
+                                    ->select('apiKey')
+                                    ->fetch();
 
         $response = [
             'apiKey'          => $accountData['apiKey'],
-            'apiQueryHistory' => APIQueryHistory::get($this->pdo, $uid),
-            'settings'        => Settings::get($this->pdo, $uid),
+            'apiQueryHistory' => APIQueryHistory::get($this->fluent, $id),
+            'settings'        => Settings::get($this->fluent, $id),
         ];
 
         if($withToken) {
-            $response['token'] = Token::create($uid);
+            $response['token'] = Token::create($id);
         }
 
         return $response;
@@ -142,20 +148,22 @@ class User {
     /**
      * If public, fetches required data to render someones profile.
      *
-     * @param int $uid
+     * @param int $id
      *
      * @return array
      */
-    public function getProfileData(int $uid): array {
+    public function getProfileData(int $id): array {
         return [];
     }
 
-    public function exists(int $uid): bool {
-        $stmt = $this->pdo->prepare(self::QUERIES['exists']);
-        $stmt->execute([
-            'uid' => $uid,
-        ]);
-
-        return $stmt->rowCount() === 1;
+    /**
+     * @param int $id
+     *
+     * @return bool
+     * @throws Exception
+     */
+    public function exists(int $id): bool {
+        return count($this->fluent->from('user', $id)
+                                  ->fetch()) === 1;
     }
 }

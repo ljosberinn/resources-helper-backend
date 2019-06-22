@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use Envms\FluentPDO\Query;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Monolog\Processor\UidProcessor;
@@ -24,6 +25,6 @@ return static function(App $app) {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
 
-        return $pdo;
+        return new Query($pdo);
     };
 };

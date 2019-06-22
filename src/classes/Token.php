@@ -8,7 +8,7 @@ use Tuupola\Base62;
 
 class Token {
 
-    public static function create(int $uid): string {
+    public static function create(int $id): string {
         $now    = new DateTime();
         $future = new DateTime('now +2 hours');
 
@@ -16,7 +16,7 @@ class Token {
             'iat' => $now->getTimestamp(),
             'exp' => $future->getTimestamp(),
             'jti' => (new Base62())->encode(random_bytes(16)),
-            'uid' => $uid,
+            'uid' => $id,
         ];
 
         $secret = $_ENV['jwtSecret'];

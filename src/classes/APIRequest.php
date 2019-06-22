@@ -50,7 +50,7 @@ class APIRequest {
         $this->client = new Client([
             'base_uri' => self::API_ENDPOINT,
             'headers'  => [
-                'User-Agent' => 'Resources Helper/4.0-TESTING',
+                'User-Agent' => 'Resources Helper/4.0-' . strpos($_SERVER['HTTP_HOST'], 'localhost') === false ? 'LIVE' : 'TESTING',
             ],
         ]);
     }
@@ -63,17 +63,9 @@ class APIRequest {
         return ctype_alnum($apiKey) && strlen($apiKey) === 45;
     }
 
-    /**
-     * Performs the actual API call
-     *
-     * @param int    $query
-     * @param string $apiKey
-     *
-     * @return array|null
-     */
     public function fetch(int $query, string $apiKey): ?array {
         $response = $this->client->get(self::API_ENDPOINT_URI, [
-            'query' => $this->getParams($query, $apiKey),
+            'query' => $this->getDefaultParams($query, $apiKey),
         ]);
 
         if($response->getStatusCode() !== 200) {
@@ -85,7 +77,7 @@ class APIRequest {
         return json_decode($body, true);
     }
 
-    private function getParams(int $query, string $apiKey): array {
+    private function getDefaultParams(int $query, string $apiKey): array {
         return [
             'q' => $query,
             'k' => $apiKey,

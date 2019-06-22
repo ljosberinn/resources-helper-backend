@@ -2,7 +2,7 @@
 
 namespace ResourcesHelper;
 
-use PDO;
+use Envms\FluentPDO\{Exception, Query};
 
 class Registration {
     use ValidationTrait;
@@ -10,10 +10,16 @@ class Registration {
     /** @var User */
     private $user;
 
-    public function __construct(PDO $pdo) {
-        $this->user = new User($pdo);
+    public function __construct(Query $fluent) {
+        $this->user = new User($fluent);
     }
 
+    /**
+     * @param array $userData
+     *
+     * @return int
+     * @throws Exception
+     */
     public function register(array $userData): int {
         return $this->user->register($userData);
     }
