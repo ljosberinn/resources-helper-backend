@@ -16,7 +16,7 @@ class Token {
             'iat' => $now->getTimestamp(),
             'exp' => $future->getTimestamp(),
             'jti' => (new Base62())->encode(random_bytes(16)),
-            'uid' => $id,
+            'id'  => $id,
         ];
 
         $secret = $_ENV['jwtSecret'];

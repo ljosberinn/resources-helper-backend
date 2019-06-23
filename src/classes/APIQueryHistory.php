@@ -37,7 +37,6 @@ class APIQueryHistory {
                        ->fetch();
         unset($data['id']);
 
-
         foreach($data as $id => $timestamp) {
             $data[str_replace('query_', '', $id)] = (int) $timestamp;
             unset($data[$id]);
@@ -64,19 +63,16 @@ class APIQueryHistory {
     }
 
     /**
-     * @param int   $id
-     * @param array $currentQueries
+     * @param int $id
+     * @param int $query
      *
      * @return bool
      * @throws Exception
      */
-    public function update(int $id, array $currentQueries): bool {
-        $now = time();
-
-        $set = [];
-        foreach($currentQueries as $query) {
-            $set['query_' . $query] = $now;
-        }
+    public function update(int $id, int $query): bool {
+        $set = [
+            'query_' . $query => time(),
+        ];
 
         return (bool) $this->fluent->update('apiQueryHistory')
                                    ->set($set)

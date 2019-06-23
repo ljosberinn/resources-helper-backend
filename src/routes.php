@@ -10,10 +10,11 @@ return static function(App $app) {
 
     $app->get('/api/{apiKey}/{query:[0-9]+}', function(Request $request, Response $response, array $args) use ($container) {
         $container->get('logger')
-                  ->info('GET /api/' . $args['query'] . ' - uid ' . $container['token']['uid']);
+                  ->info('GET /api/' . $args['query'] . ' - uid ' . $container['token']['id']);
 
         $query  = (int) $args['query'];
         $apiKey = $args['apiKey'];
+        $id     = (int) $container['token']['id'];
 
         $apiRequest = new APIRequest();
 
@@ -23,8 +24,6 @@ return static function(App $app) {
                             ->write(json_encode(['error' => 'QUERY_INVALID']));
         }
 
-        $db = $container->get('db');
-
         $data = $apiRequest->fetch($query, $apiKey);
 
         if($data === NULL) {
@@ -32,6 +31,10 @@ return static function(App $app) {
                             ->withHeader(...JSON())
                             ->write(json_encode(['error' => 'API_UNRESPONSIVE']));
         }
+
+        $db = $container->get('db');
+
+        (new APIQueryHistory($db))->update($id, $query);
 
         //$apiProcessor = new APIProcessor($db, $data);
         //$apiPersistor = new APIPersistor($db);
@@ -52,48 +55,48 @@ return static function(App $app) {
          */
         $app->get('/', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('GET /profile/' . $this['token']['uid']);
+                 ->info('GET /profile/' . $this['token']['id']);
 
             // flag to indicate re-creation of token; only when previous token is older than 5 minutes
             $withToken = time() > $this['token']['exp'] - 300;
 
             $user   = new User($this->get('db'));
-            $output = $user->getAccountData((int) $this['token']['uid'], $withToken);
+            $output = $user->getAccountData((int) $this['token']['id'], $withToken);
 
             return $response->withStatus(Status::OK)
                             ->withHeader(...JSON())
                             ->write(json_encode($output, JSON_NUMERIC_CHECK));
         });
 
-        $app->post('/apiQueryHistory', function(Request $request, Response $response) {
+        /*$app->post('/apiQueryHistory', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('POST /apiQueryHistory/' . $this['token']['uid']);
+                 ->info('POST /apiQueryHistory/' . $this['token']['id']);
 
-            $output = ['token' => Token::create($this['token']['uid'])];
+            $output = ['token' => Token::create($this['token']['id'])];
 
             $body    = $request->getParsedBody() ?: [];
             $history = !empty($body) && isset($body['queries']) ? array_values($body['queries']) : [];
 
             $apiQueryHistory = new APIQueryHistory($this->get('db'));
-            $status          = $apiQueryHistory->update((int) $this['token']['uid'], $history) ? Status::OK : Status::BAD_REQUEST;
+            $status          = $apiQueryHistory->update((int) $this['token']['id'], $history) ? Status::OK : Status::BAD_REQUEST;
 
             return $response->withStatus($status)
                             ->withHeader(...JSON())
                             ->write(json_encode($output));
-        });
+        });*/
 
         $app->get('/apiQueryHistory', function(Request $request, Response $response) {
             $this->get('logger')
-                 ->info('GET /apiQueryHistory/ ' . $this['token']['uid']);
+                 ->info('GET /apiQueryHistory/ ' . $this['token']['id']);
 
             return $response->withStatus(Status::OK)
                             ->withHeader(...JSON())
-                            ->write(json_encode(APIQueryHistory::get($this->get('db'), (int) $this['token']['uid'])));
+                            ->write(json_encode(APIQueryHistory::get($this->get('db'), (int) $this['token']['id'])));
         });
 
         $app->patch('/settings/{type}', function(Request $request, Response $response, array $args) {
             $this->get('logger')
-                 ->info('PATCH /settings/' . $args['type'] . '/' . $this['token']['uid']);
+                 ->info('PATCH /settings/' . $args['type'] . '/' . $this['token']['id']);
             $output = [];
 
             $settings = new Settings($this->get('db'));
@@ -105,9 +108,9 @@ return static function(App $app) {
             }
 
             $settings->setType($args['type']);
-            $settings->update((int) $this['token']['uid'], $request->getParsedBody() ?: []);
+            $settings->update((int) $this['token']['id'], $request->getParsedBody() ?: []);
 
-            $output['token'] = Token::create((int) $this['token']['uid']);
+            $output['token'] = Token::create((int) $this['token']['id']);
 
             return $response->withStatus(Status::ACCEPTED)
                             ->withHeader(...JSON())

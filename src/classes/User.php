@@ -14,10 +14,6 @@ class User {
 
     public function __construct(Query $pdo) {
         $this->fluent = $pdo;
-
-        if($_SERVER['HTTP_X_FORWARDED_FOR'] === '127.0.0.1') {
-            $this->createTable();
-        }
     }
 
     private function createTable(): void {
