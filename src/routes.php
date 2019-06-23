@@ -68,32 +68,6 @@ return static function(App $app) {
                             ->write(json_encode($output, JSON_NUMERIC_CHECK));
         });
 
-        /*$app->post('/apiQueryHistory', function(Request $request, Response $response) {
-            $this->get('logger')
-                 ->info('POST /apiQueryHistory/' . $this['token']['id']);
-
-            $output = ['token' => Token::create($this['token']['id'])];
-
-            $body    = $request->getParsedBody() ?: [];
-            $history = !empty($body) && isset($body['queries']) ? array_values($body['queries']) : [];
-
-            $apiQueryHistory = new APIQueryHistory($this->get('db'));
-            $status          = $apiQueryHistory->update((int) $this['token']['id'], $history) ? Status::OK : Status::BAD_REQUEST;
-
-            return $response->withStatus($status)
-                            ->withHeader(...JSON())
-                            ->write(json_encode($output));
-        });*/
-
-        $app->get('/apiQueryHistory', function(Request $request, Response $response) {
-            $this->get('logger')
-                 ->info('GET /apiQueryHistory/ ' . $this['token']['id']);
-
-            return $response->withStatus(Status::OK)
-                            ->withHeader(...JSON())
-                            ->write(json_encode(APIQueryHistory::get($this->get('db'), (int) $this['token']['id'])));
-        });
-
         $app->patch('/settings/{type}', function(Request $request, Response $response, array $args) {
             $this->get('logger')
                  ->info('PATCH /settings/' . $args['type'] . '/' . $this['token']['id']);
