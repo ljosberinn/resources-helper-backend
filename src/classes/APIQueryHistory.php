@@ -37,20 +37,21 @@ class APIQueryHistory {
                        ->fetch();
         unset($data['id']);
 
+        $mostRecentQuery = 0;
+        
         foreach($data as $id => $timestamp) {
-            $data[str_replace('query_', '', $id)] = (int) $timestamp;
+            $timestamp = (int) $timestamp;
+
+            $data[str_replace('query_', '', $id)] = $timestamp;
             unset($data[$id]);
+
+            if($timestamp > $mostRecentQuery) {
+                $mostRecentQuery = $timestamp;
+            }
         }
 
-        $mostRecentQuery = array_reduce($data, static function(int $carry, int $entry) {
-            if($entry > $carry) {
-                return $entry;
-            }
-
-            return $carry;
-        }, 0);
-
         $response = [];
+
         foreach($data as $id => $timestamp) {
             $response[] = [
                 'id'        => $id,
