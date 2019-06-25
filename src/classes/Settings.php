@@ -2,7 +2,7 @@
 
 namespace ResourcesHelper;
 
-use Envms\FluentPDO\{Query, Exception};
+use Envms\FluentPDO\{Query, Exception, Literal};
 
 class Settings {
 
@@ -79,8 +79,8 @@ class Settings {
 
         switch($this->type) {
             case 'rememberAPIKey':
-                $this->fluent->update('user', ['apiKey' => $payload['apiKey'] ?? NULL], $id);
-                $this->fluent->update('settings', ['remembersAPIKey' => $payload['apiKey'] ? 1 : 0], $id);
+                $this->fluent->update('user', ['apiKey' => $payload['apiKey'] ?? new Literal('NULL')], $id)->execute();
+                $this->fluent->update('settings', ['remembersAPIKey' => $payload['apiKey'] ? 1 : 0], $id)->execute();
                 break;
             case 'language':
 
