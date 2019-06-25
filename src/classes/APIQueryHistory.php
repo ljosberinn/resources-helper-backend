@@ -9,6 +9,8 @@ class APIQueryHistory {
     /** @var Query */
     private $fluent;
 
+    private const QUERY_EXECUTION_TOLERANCE = 30; // seconds
+
     public function __construct(Query $fluent) {
         $this->fluent = $fluent;
     }
@@ -52,11 +54,13 @@ class APIQueryHistory {
 
         $response = [];
 
+        $mostRecentQuery -= self::QUERY_EXECUTION_TOLERANCE;
+
         foreach($data as $id => $timestamp) {
             $response[] = [
                 'id'        => $id,
                 'lastQuery' => $timestamp * 1000,
-                'active'    => $timestamp === $mostRecentQuery,
+                'active'    => $timestamp > $mostRecentQuery,
             ];
         }
 
