@@ -40,7 +40,7 @@ class APIQueryHistory {
         unset($data['id']);
 
         $mostRecentQuery = 0;
-        
+
         foreach($data as $id => $timestamp) {
             $timestamp = (int) $timestamp;
 
@@ -75,6 +75,10 @@ class APIQueryHistory {
      * @throws Exception
      */
     public function update(int $id, int $query): bool {
+        if($query === 0) {
+            return true;
+        }
+
         $set = [
             'query_' . $query => time(),
         ];
