@@ -17,6 +17,8 @@ class Settings {
         'language',
     ];
 
+    private const TABLE_NAME = 'settings';
+
     public function __construct(Query $fluent) {
         $this->fluent = $fluent;
 
@@ -29,8 +31,9 @@ class Settings {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`settings` (
             `id` INT(10) NULL AUTO_INCREMENT,
-            `language` VARCHAR(5) NOT NULL DEFAULT "de_DE",
+            `locale` VARCHAR(5) NOT NULL DEFAULT "de_DE",
             `remembersAPIKey` TINYINT(1) NOT NULL DEFAULT "0",
+            `apiKey` VARCHAR(45) NULL DEFAULT NULL,
             `hasPublicProfile` TINYINT(1) NOT NULL DEFAULT "0"
         )';
     }
@@ -46,7 +49,7 @@ class Settings {
             'id' => $id,
         ];
 
-        $fluent->insertInto('settings', $values)
+        $fluent->insertInto(self::TABLE_NAME, $values)
                ->execute();
     }
 
@@ -58,9 +61,11 @@ class Settings {
      * @throws Exception
      */
     public static function get(Query $fluent, int $id) {
-        $settings = $fluent->from('settings', $id)
+        $settings = $fluent->from(self::TABLE_NAME, $id)
                            ->fetch();
+
         unset($settings['id']);
+
         return $settings;
     }
 
@@ -79,8 +84,13 @@ class Settings {
 
         switch($this->type) {
             case 'rememberAPIKey':
-                $this->fluent->update('user', ['apiKey' => $payload['apiKey'] ?? new Literal('NULL')], $id)->execute();
-                $this->fluent->update('settings', ['remembersAPIKey' => $payload['apiKey'] ? 1 : 0], $id)->execute();
+                $set = [
+                    'remembersAPIKey' => $payload['apiKey'] ? 1 : 0,
+                    'apiKey'          => $payload['apiKey'] ?? new Literal('NULL'),
+                ];
+
+                $this->fluent->update(self::TABLE_NAME, $set, $id)
+                             ->execute();
                 break;
             case 'language':
 
@@ -95,7 +105,7 @@ class Settings {
      * @throws Exception
      */
     public function hasPublicProfile(int $id): bool {
-        return count($this->fluent->from('settings')
+        return count($this->fluent->from(self::TABLE_NAME)
                                   ->where('hasPublicProfile', 1)
                                   ->where('id', $id)
                                   ->fetch()) === 1;

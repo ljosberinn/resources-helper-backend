@@ -12,6 +12,8 @@ class User {
     /** @var array */
     private $currentUser;
 
+    private const TABLE_NAME = 'user';
+
     public function __construct(Query $pdo) {
         $this->fluent = $pdo;
     }
@@ -25,7 +27,6 @@ class User {
             `registeredAt` INT(10) NOT NULL,
             `lastLogin` INT(10) DEFAULT NULL,
             `lastAction` INT(10) DEFAULT NULL,
-            `apiKey` VARCHAR(45) NULL DEFAULT NULL,
             PRIMARY KEY (`id`)
         )';
     }
@@ -38,7 +39,7 @@ class User {
      * @throws Exception
      */
     public function isUnique(string $column, string $value): bool {
-        $query = $this->fluent->from('user')
+        $query = $this->fluent->from(self::TABLE_NAME)
                               ->select(['id', 'password'])
                               ->where($column, $value)
                               ->fetch();
@@ -68,7 +69,7 @@ class User {
             'lastAction'   => $now,
         ];
 
-        $id = (int) $this->fluent->insertInto('user', $values)
+        $id = (int) $this->fluent->insertInto(self::TABLE_NAME, $values)
                                  ->execute();
 
         Settings::createDefaultEntry($this->fluent, $id);
@@ -89,7 +90,7 @@ class User {
             'lastAction' => $now,
         ];
 
-        $this->fluent->update('user', $set, (int) $this->currentUser['id'])
+        $this->fluent->update(self::TABLE_NAME, $set, (int) $this->currentUser['id'])
                      ->execute();
 
         return (int) $this->currentUser['id'];
@@ -110,7 +111,7 @@ class User {
             'lastAction' => time(),
         ];
 
-        $fluent->update('user', $set, $id)
+        $fluent->update(self::TABLE_NAME, $set, $id)
                ->execute();
     }
 
@@ -124,12 +125,7 @@ class User {
      * @throws Exception
      */
     public function getAccountData(int $id, bool $withToken): array {
-        $accountData = $this->fluent->from('user', $id)
-                                    ->select('apiKey')
-                                    ->fetch();
-
         $response = [
-            'apiKey'          => $accountData['apiKey'],
             'apiQueryHistory' => APIQueryHistory::get($this->fluent, $id),
             'settings'        => Settings::get($this->fluent, $id),
         ];
@@ -159,7 +155,7 @@ class User {
      * @throws Exception
      */
     public function exists(int $id): bool {
-        return count($this->fluent->from('user', $id)
+        return count($this->fluent->from(self::TABLE_NAME, $id)
                                   ->fetch()) === 1;
     }
 }
