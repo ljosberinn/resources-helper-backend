@@ -21,13 +21,9 @@ class Settings {
 
     public function __construct(Query $fluent) {
         $this->fluent = $fluent;
-
-        if($_SERVER['HTTP_X_FORWARDED_FOR'] === '127.0.0.1') {
-            $this->createTable();
-        }
     }
 
-    private function createTable(): void {
+    private function createSchema(): void {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`settings` (
             `id` INT(10) NULL AUTO_INCREMENT,
@@ -36,6 +32,7 @@ class Settings {
             `apiKey` VARCHAR(45) NULL DEFAULT NULL,
             `hasPublicProfile` TINYINT(1) NOT NULL DEFAULT "0"
         )';
+        $this->fluent->getPdo()->exec($stmt);
     }
 
     /**

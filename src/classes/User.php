@@ -18,7 +18,7 @@ class User {
         $this->fluent = $pdo;
     }
 
-    private function createTable(): void {
+    private function createSchema(): void {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`user` (
             `id` INT(11) NOT NULL AUTO_INCREMENT,
@@ -29,6 +29,7 @@ class User {
             `lastAction` INT(10) DEFAULT NULL,
             PRIMARY KEY (`id`)
         )';
+        $this->fluent->getPdo()->exec($stmt);
     }
 
     /**

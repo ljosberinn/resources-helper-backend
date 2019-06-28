@@ -2,6 +2,8 @@
 
 namespace ResourcesHelper;
 
+use Envms\FluentPDO\Exception;
+
 /**
  * Contains shared logic of Login and Registration classes
  *
@@ -27,7 +29,14 @@ trait ValidationTrait {
         return preg_match($this->PASSWORD_PATTERN, $password) === 1;
     }
 
+    /**
+     * @param string $mail
+     *
+     * @return bool
+     * @throws Exception
+     */
     public function accountExists(string $mail): bool {
+        /* @var Login|Registration $this */
         return $this->user->isUnique('mail', $mail);
     }
 

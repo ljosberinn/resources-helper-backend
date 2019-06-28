@@ -5,9 +5,16 @@ namespace ResourcesHelper;
 use DateTime;
 use Firebase\JWT\JWT;
 use Tuupola\Base62;
+use Exception;
 
 class Token {
 
+    /**
+     * @param int $id
+     *
+     * @return string
+     * @throws Exception
+     */
     public static function create(int $id): string {
         $now    = new DateTime();
         $future = new DateTime('now +2 hours');
