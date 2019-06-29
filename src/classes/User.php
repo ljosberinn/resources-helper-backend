@@ -21,15 +21,16 @@ class User {
     private function createSchema(): void {
         $stmt = 'CREATE TABLE IF NOT EXISTS 
         `rhelper`.`user` (
-            `id` INT(11) NOT NULL AUTO_INCREMENT,
-            `mail` VARCHAR(255) NOT NULL,
-            `password` CHAR(100) NOT NULL,
-            `registeredAt` INT(10) NOT NULL,
-            `lastLogin` INT(10) DEFAULT NULL,
-            `lastAction` INT(10) DEFAULT NULL,
+            `id` int(11) NOT NULL,
+            `mail` varchar(255) NOT NULL,
+            `password` char(100) NOT NULL,
+            `registeredAt` int(10) NOT NULL,
+            `lastLogin` int(10) DEFAULT NULL,
+            `lastAction` int(10) DEFAULT NULL,
             PRIMARY KEY (`id`)
         )';
-        $this->fluent->getPdo()->exec($stmt);
+        $this->fluent->getPdo()
+                     ->exec($stmt);
     }
 
     /**
@@ -64,7 +65,8 @@ class User {
 
         $values = [
             'mail'         => $userData['mail'],
-            'password'     => password_hash($userData['password'], PASSWORD_BCRYPT, ['cost' => 12]),
+            'password'     => password_hash($userData['password'],
+                PASSWORD_BCRYPT, ['cost' => 12]),
             'registeredAt' => $now,
             'lastLogin'    => $now,
             'lastAction'   => $now,
@@ -91,7 +93,8 @@ class User {
             'lastAction' => $now,
         ];
 
-        $this->fluent->update(self::TABLE_NAME, $set, (int) $this->currentUser['id'])
+        $this->fluent->update(self::TABLE_NAME, $set,
+            (int) $this->currentUser['id'])
                      ->execute();
 
         return (int) $this->currentUser['id'];

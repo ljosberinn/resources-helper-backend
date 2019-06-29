@@ -24,14 +24,14 @@ class Settings {
     }
 
     private function createSchema(): void {
-        $stmt = 'CREATE TABLE IF NOT EXISTS 
-        `rhelper`.`settings` (
-            `id` INT(10) NULL AUTO_INCREMENT,
-            `locale` VARCHAR(5) NOT NULL DEFAULT "de_DE",
-            `remembersAPIKey` TINYINT(1) NOT NULL DEFAULT "0",
+        $stmt = 'CREATE TABLE `rhelper`.`settings` (
+            `id` INT(10) NOT NULL AUTO_INCREMENT ,
+            `locale` TINYINT(1) UNSIGNED NOT NULL DEFAULT "1",
             `apiKey` VARCHAR(45) NULL DEFAULT NULL,
-            `hasPublicProfile` TINYINT(1) NOT NULL DEFAULT "0"
-        )';
+            `remembersApiKey` TINYINT(1) UNSIGNED NOT NULL DEFAULT "0",
+            `hasPublicProfile` TINYINT(1) UNSIGNED NOT NULL DEFAULT "0",
+        PRIMARY KEY (`id`)
+        ) ENGINE = InnoDB;';
         $this->fluent->getPdo()->exec($stmt);
     }
 

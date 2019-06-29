@@ -28,6 +28,7 @@ class Registration {
      * @param array $userData
      *
      * @return bool|string
+     * @throws Exception
      */
     public function getError(array $userData) {
         if(empty($userData) || !isset($userData['mail'], $userData['password'])) {

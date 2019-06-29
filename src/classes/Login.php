@@ -18,6 +18,7 @@ class Login {
      * @param array $userData
      *
      * @return bool|string
+     * @throws Exception
      */
     public function getError(array $userData) {
         if(empty($userData) || !isset($userData['mail'], $userData['password'])) {
@@ -32,12 +33,7 @@ class Login {
             return $this->PASSWORD_INSECURE;
         }
 
-        if(!$this->accountExists($userData['mail'])) {
-            return $this->UNKNOWN_ACCOUNT;
-        }
-
-        // todo: try to combine with previous if
-        if(!$this->user->isCorrectPassword($userData['password'])) {
+        if(!$this->accountExists($userData['mail']) || !$this->user->isCorrectPassword($userData['password'])) {
             return $this->UNKNOWN_ACCOUNT;
         }
 
