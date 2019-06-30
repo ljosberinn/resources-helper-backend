@@ -3,51 +3,75 @@
 use Slim\App;
 use Slim\Http\Request;
 use Slim\Http\Response;
-use ResourcesHelper\{APIQueryHistory, APIRequest, Status, Registration, Login, Token, Settings, User};
+use ResourcesHelper\{APIPersistor, APIProcessor, APIQueryHistory, APIRequest, Status, Registration, Login, Token, Settings, User};
 
 return static function(App $app) {
     $container = $app->getContainer();
 
-    $app->get('/api/{apiKey}/{query:[0-9]+}', function(Request $request, Response $response, array $args) use ($container) {
-        $container->get('logger')
-                  ->info('GET /api/' . $args['query'] . ' - uid ' . $container['token']['id']);
+    $app->group('/api', function(App $app) {
 
-        $query  = (int) $args['query'];
-        $apiKey = $args['apiKey'];
-        $id     = (int) $container['token']['id'];
+        /**
+         * This route is a workaround to counter the weak server condition this app will run in
+         */
+        $app->post('/processQuery5/{iteration}/{cycles}', function(Request $request, Response $response, array $args) {
+            $this->get('logger')
+                 ->info('POST /api/processQuery5 - uid ' . $this['token']['id']);
 
-        $apiRequest = new APIRequest();
+            $id        = (int) $this['token']['id'];
+            $iteration = (int) $args['iteration'];
+            $cycles    = (int) $args['cycles'];
 
-        if(!$apiRequest->isValidAPIKey($apiKey) || !$apiRequest->isValidQuery($query)) {
-            return $response->withStatus(Status::UNPROCESSABLE_ENTITY)
+            $apiProcessor = new APIProcessor(5, $id);
+            $apiPersistor = new APIPersistor($this->get('db'), 5, $id);
+
+            $data = $apiProcessor->postProcess($iteration);
+            $apiPersistor->persist($data, $iteration === 1);
+
+            return $response->withStatus($iteration === $cycles ? Status::OK : Status::PARTIAL_CONTENT);
+        });
+
+        $app->get('/{apiKey}/{query:[0-9]+}', function(Request $request, Response $response, array $args) {
+            $this->get('logger')
+                 ->info('GET /api/' . $args['query'] . ' - uid ' . $this['token']['id']);
+
+            $query  = (int) $args['query'];
+            $apiKey = $args['apiKey'];
+            $id     = (int) $this['token']['id'];
+
+            $apiRequest = new APIRequest();
+
+            if(!$apiRequest->isValidAPIKey($apiKey) || !$apiRequest->isValidQuery($query)) {
+                return $response->withStatus(Status::UNPROCESSABLE_ENTITY)
+                                ->withHeader(...JSON())
+                                ->write(json_encode(['error' => 'QUERY_INVALID']));
+            }
+
+            $responseInterface = $apiRequest->fetch($query, $apiKey);
+
+            if($responseInterface->getStatusCode() !== 200) {
+                return $response->withStatus(Status::SERVICE_UNAVAILABLE)
+                                ->withHeader(...JSON())
+                                ->write(json_encode(['error' => 'API_UNRESPONSIVE']));
+            }
+
+            $db = $this->get('db');
+
+            $apiProcessor = new APIProcessor($query, $id);
+            $apiPersistor = new APIPersistor($db, $query, $id);
+
+            $apiResponse = $apiProcessor->parse($query, $responseInterface);
+
+            $output = [
+                'response' => $query === 5 ? $apiResponse : $apiPersistor->persist($apiResponse),
+            ];
+
+            (new APIQueryHistory($db))->update($id, $query);
+            return $response->withStatus(Status::OK)
                             ->withHeader(...JSON())
-                            ->write(json_encode(['error' => 'QUERY_INVALID']));
-        }
-
-        $data = $apiRequest->fetch($query, $apiKey);
-
-        if($data === NULL) {
-            return $response->withStatus(Status::SERVICE_UNAVAILABLE)
-                            ->withHeader(...JSON())
-                            ->write(json_encode(['error' => 'API_UNRESPONSIVE']));
-        }
-
-        $db = $container->get('db');
-
-        (new APIQueryHistory($db))->update($id, $query);
-
-        //$apiProcessor = new APIProcessor($db, $data);
-        //$apiPersistor = new APIPersistor($db);
-
-        $output = [
-            'query' => $query,
-            'data'  => $data,
-        ];
-
-        return $response->withStatus(Status::OK)
-                        ->withHeader(...JSON())
-                        ->write(json_encode($output));
+                            ->write(json_encode($output));
+        });
     });
+
 
     $app->group('/account', function(App $app) {
         /**

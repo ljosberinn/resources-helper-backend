@@ -3,6 +3,7 @@
 namespace ResourcesHelper;
 
 use GuzzleHttp\Client;
+use Psr\Http\Message\ResponseInterface;
 
 class APIRequest {
 
@@ -63,18 +64,10 @@ class APIRequest {
         return ctype_alnum($apiKey) && strlen($apiKey) === 45;
     }
 
-    public function fetch(int $query, string $apiKey): ?array {
-        $response = $this->client->get(self::API_ENDPOINT_URI, [
+    public function fetch(int $query, string $apiKey): ResponseInterface {
+        return $this->client->get(self::API_ENDPOINT_URI, [
             'query' => $this->getDefaultParams($query, $apiKey),
         ]);
-
-        if($response->getStatusCode() !== 200) {
-            return NULL;
-        }
-
-        $body = (string) $response->getBody();
-
-        return json_decode($body, true);
     }
 
     private function getDefaultParams(int $query, string $apiKey): array {
