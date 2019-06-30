@@ -69,7 +69,6 @@ class APIProcessor {
         $response = $response->getBody();
         $size     = $response->getSize();
 
-
         if($size === NULL) {
             return 0;
         }
@@ -89,18 +88,19 @@ class APIProcessor {
             $bytes     = $response->read($nextBatch);
             $bytesRead += $nextBatch;
 
-            // remove [ at the beginning
+            // remove leading [
             if($bytesRead === self::BYTES_PER_ITERATION) {
                 $bytes = substr($bytes, 1);
             }
 
-            // remove ] at the end
+            // remove trailing ]
             if($hasReachedEOF) {
                 $bytes = substr($bytes, 0, -1);
             }
 
             $datasetEndingPosition = strpos($bytes, '}');
 
+            // proceed only when a full JSON is available
             if($datasetEndingPosition === false) {
                 $buffer .= $bytes;
                 continue;
